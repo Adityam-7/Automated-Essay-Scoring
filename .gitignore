@@ -1,0 +1,8 @@
+﻿venv/
+ASAP2_train_sourcetexts.csv
+webpage/score_essay.csv
+webpage - Copy/
+webpage.zip
+__pycache__/
+*.pyc
+Thumbs.db

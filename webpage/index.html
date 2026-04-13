@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Essay Scoring App</title>
+<!-- Loading Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+<!-- Styles for loading spin animation -->
+    <style>
+        .loading-spinner {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+<!-- Styles for dark mode, warnings and previous essay records -->
+    <style>
+        .dark-mode {
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+        .dark-mode .bg-white {
+            background-color: #2d3748;
+        }
+        .dark-mode .text-gray-800 {
+            color: #e2e8f0;
+        }
+        .dark-mode .text-gray-600 {
+            color: #a0aec0;
+        }
+        .dark-mode .bg-gray-100 {
+            background-color: #1a202c;
+        }
+        .dark-mode .border {
+            border-color: #4a5568;
+        }
+        .length-warning {
+            color: #e53e3e;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+        .error-message {
+            color: #e53e3e;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+        .history-item {
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0.5rem 0;
+        }
+        .dark-mode .history-item {
+            border-bottom-color: #4a5568;
+        }
+        .collapsible-header {
+            cursor: pointer;
+            font-weight: 600;
+            padding: 0.5rem;
+            background-color: #edf2f7;
+        }
+        .dark-mode .collapsible-header {
+            background-color: #4a5568;
+        }
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .collapsible-content.open {
+            max-height: 500px;
+        }
+    </style>
+</head>
+<!-- Main page layout with centered content -->
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-4">Essay Scoring App</h1>
+        <p class="text-gray-600 text-center mb-6">Enter your essay below to receive a score (1-4).</p>
+
+   	<!-- Textarea for essay input with word and character count -->     
+
+        <div class="mb-4">
+            <textarea id="essayInput" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" rows="10" placeholder="Type or paste your essay here..."></textarea>
+            <p class="text-sm text-gray-500 mt-2">
+                Word count: <span id="wordCount">0</span> | Character count: <span id="charCount">0</span>
+            </p>
+            <p id="lengthWarning" class="length-warning hidden"></p>
+        </div>
+
+<!-- Buttons for scoring and resetting the form -->
+        
+        <div class="flex space-x-4 mb-4">
+            <button id="submitBtn" class="w-full bg-blue-500 text-white p-3 rounded-lg hover:bg-blue-600 transition">Score Essay</button>
+            <button id="resetBtn" class="w-full bg-gray-300 text-gray-800 p-3 rounded-lg hover:bg-gray-400 transition">Reset</button>
+        </div>
+        
+<!-- Loading spinner shown during scoring -->
+
+        <div id="loading" class="loading-spinner"></div>
+
+ <!-- Display score and feedback -->
+<div id="result" class="hidden text-center">
+    <p class="text-lg font-semibold text-gray-800">Your Essay Score: <span id="score" class="text-blue-600"></span></p>
+    <p id="feedback" class="text-gray-600 mt-2"><strong>Feedback:</strong> <span id="feedbackText"></span></p>
+</div>
+
+     <!-- Display error messages -->
+
+        <div id="error" class="error-message hidden"></div>
+
+<!-- Buttons for saving, loading, and exporting -->
+
+        <div class="flex space-x-4 mb-4">
+            <button id="saveBtn" class="w-full bg-green-500 text-white p-3 rounded-lg hover:bg-green-600 transition">Save Essay</button>
+            <button id="loadBtn" class="w-full bg-yellow-500 text-white p-3 rounded-lg hover:bg-yellow-600 transition">Load Saved Essay</button>
+            <button id="exportBtn" class="w-full bg-purple-500 text-white p-3 rounded-lg hover:bg-purple-600 transition hidden">Export Score</button>
+        </div>
+        <div class="flex justify-end mb-4">
+            <button id="darkModeBtn" class="bg-gray-500 text-white p-2 rounded-lg hover:bg-gray-600 transition">Toggle Dark Mode</button>
+        </div>
+
+ <!-- Collapsible score history section -->
+
+        <div class="mb-4">
+            <div class="collapsible-header">Score History</div>
+            <div id="scoreHistory" class="collapsible-content"></div>
+        </div>
+    </div>
+
+<!-- JavaScript Part -->
+
+    <script>
+// Get DOM elements for interaction
+        const essayInput = document.getElementById('essayInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const wordCountSpan = document.getElementById('wordCount');
+        const resultDiv = document.getElementById('result');
+        const scoreSpan = document.getElementById('score');
+        const feedbackP = document.getElementById('feedback');
+        const loadingSpinner = document.getElementById('loading');
+        const charCountSpan = document.getElementById('charCount');
+        const lengthWarning = document.getElementById('lengthWarning');
+        const saveBtn = document.getElementById('saveBtn');
+        const loadBtn = document.getElementById('loadBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const darkModeBtn = document.getElementById('darkModeBtn');
+        const scoreHistory = document.getElementById('scoreHistory');
+        const collapsibleHeader = document.querySelector('.collapsible-header');
+        const errorDiv = document.getElementById('error');
+
+        // Loading score history from localStorage
+        let history = JSON.parse(localStorage.getItem('scoreHistory')) || [];
+
+        // Real-time character count and length validation
+        essayInput.addEventListener('input', () => {
+            const text = essayInput.value;
+            const trimmedText = text.trim();
+            const wordCount = trimmedText ? trimmedText.split(/\s+/).length : 0;
+            const charCount = text.length;
+            wordCountSpan.textContent = wordCount;
+            charCountSpan.textContent = charCount;
+
+            if (charCount < 50) {
+                lengthWarning.textContent = 'Essay is too short (minimum 50 characters).';
+                lengthWarning.classList.remove('hidden');
+            } else if (charCount > 10000) {
+                lengthWarning.textContent = 'Essay is too long (maximum 10,000 characters).';
+                lengthWarning.classList.remove('hidden');
+            } else {
+                lengthWarning.classList.add('hidden');
+            }
+            errorDiv.classList.add('hidden');
+        });
+
+        // Save essay to localStorage
+        saveBtn.addEventListener('click', () => {
+            const essay = essayInput.value;
+            const trimmedEssay = essay.trim();
+            console.log('Raw essay:', JSON.stringify(essay));
+            console.log('Trimmed essay:', JSON.stringify(trimmedEssay));
+            if (!trimmedEssay) {
+                errorDiv.textContent = 'No essay to save. Please enter text (not just whitespace).';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            localStorage.setItem('savedEssay', essay);
+            errorDiv.textContent = 'Essay saved successfully!';
+            errorDiv.classList.remove('hidden');
+            errorDiv.style.color = '#2f855a'; 
+            setTimeout(() => {
+                errorDiv.classList.add('hidden');
+                errorDiv.style.color = '#e53e3e';
+            }, 2000);
+        });
+
+        // Load saved essay from localStorage
+        loadBtn.addEventListener('click', () => {
+            const savedEssay = localStorage.getItem('savedEssay');
+            if (!savedEssay) {
+                errorDiv.textContent = 'No saved essay found.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            essayInput.value = savedEssay;
+            const trimmedEssay = savedEssay.trim();
+            const wordCount = trimmedEssay ? trimmedEssay.split(/\s+/).length : 0;
+            const charCount = savedEssay.length;
+            wordCountSpan.textContent = wordCount;
+            charCountSpan.textContent = charCount;
+            lengthWarning.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+        });
+
+        // Submit essay for scoring
+        submitBtn.addEventListener('click', async () => {
+            const essay = essayInput.value.trim();
+            if (!essay) {
+                errorDiv.textContent = 'Please enter an essay.';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            loadingSpinner.style.display = 'block';
+            resultDiv.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch('/score_essay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ essay })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to score essay');
+                }
+
+                const data = await response.json();
+                const score = data.score;
+
+                scoreSpan.textContent = score;
+                feedbackP.textContent = getFeedback(score);
+                resultDiv.classList.remove('hidden');
+
+                // Updating to score history
+                const timestamp = new Date().toLocaleString();
+                history.unshift({
+                    score,
+                    feedback: getFeedback(score),
+                    essay: essay.substring(0, 100) + (essay.length > 100 ? '...' : ''),
+                    timestamp
+                });
+                if (history.length > 10) history.pop();
+                localStorage.setItem('scoreHistory', JSON.stringify(history));
+                updateScoreHistory();
+
+                // Show export button
+                exportBtn.classList.remove('hidden');
+            } catch (error) {
+                console.error(error);
+                errorDiv.textContent = `Error: ${error.message}`;
+                errorDiv.classList.remove('hidden');
+            } finally {
+                loadingSpinner.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Reset form
+        resetBtn.addEventListener('click', () => {
+            essayInput.value = '';
+            wordCountSpan.textContent = '0';
+            charCountSpan.textContent = '0';
+            resultDiv.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+            lengthWarning.classList.add('hidden');
+        });
+
+        // Export score and feedback as text file
+        exportBtn.addEventListener('click', () => {
+            const score = scoreSpan.textContent;
+            const feedback = feedbackP.textContent;
+            const essay = essayInput.value.trim();
+            const timestamp = new Date().toLocaleString();
+            const content = `Essay Score: ${score}\nFeedback: ${feedback}\n\nEssay:\n${essay}\n\nScored on: ${timestamp}`;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `essay_score_${timestamp.replace(/[:,\s]/g, '_')}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Dark mode toggle
+        darkModeBtn.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+        });
+
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+        }
+
+        // To view score history
+        collapsibleHeader.addEventListener('click', () => {
+            const content = scoreHistory;
+            content.classList.toggle('open');
+        });
+
+        // Display score history
+        function updateScoreHistory() {
+            scoreHistory.innerHTML = '';
+            history.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `
+                    <p><strong>Score:</strong> ${item.score}</p>
+                    <p><strong>Feedback:</strong> ${item.feedback}</p>
+                    <p><strong>Essay Preview:</strong> ${item.essay}</p>
+                    <p><strong>Time:</strong> ${item.timestamp}</p>
+                `;
+                scoreHistory.appendChild(div);
+            });
+        }
+
+        // Initialize score history
+        updateScoreHistory();
+
+        // Feedback function for scoring
+        function getFeedback(score) {
+            switch (score) {
+                case 1: return 'The essay needs significant improvement in structure, clarity, and content.';
+                case 2: return 'The essay has some good points but could improve in organization and depth.';
+                case 3: return 'The essay is well-written with minor areas for enhancement.';
+                case 4: return 'Excellent essay! Well-structured and insightful.';
+                default: return '';
+            }
+        }
+    </script>
+</body>
+</html>
